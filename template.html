@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Emscripten-Generated Code</title>
+    <style>
+      .emscripten { padding-right: 0; margin-left: auto; margin-right: auto; display: none; }
+      /* the canvas *must not* have any border or padding, or mouse coords will be wrong */
+      canvas.emscripten { border: 0px none; background-color: black; }
+      #ui { display: none; }
+      input, button { display: block; }
+      input { padding: 4px 0px; }
+    </style>
+  </head>
+  <body>
+    <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()"></canvas>
+
+    <div id='ui'>
+      <div id='time_label'></div>
+      <input id='time_slider' type='range' value='100' />
+      <button id='start_stop_button'>Start mining</button>
+      <pre id='log_pre'></pre>
+    </div>
+
+    <script type='text/javascript'>
+
+      var ui = document.querySelector('#ui');
+      var label = document.querySelector('#time_label');
+      var slider = document.querySelector('#time_slider');
+      var start_stop = document.querySelector('#start_stop_button');
+      var log_pre = document.querySelector('#log_pre');
+      var mining = false;
+      label.innerHTML = 'Power: ' + slider.value + '%';
+      slider.oninput = function(event) {
+        label.innerHTML = 'Power: ' + slider.value + '%';
+      };
+      start_stop.onclick = function(event) {
+        mining = !mining;
+        slider.style.setProperty('display', mining ? 'none' : 'block');
+        label.style.setProperty('display', mining ? 'none' : 'block');
+        start_stop.innerHTML = mining ? 'Stop mining' : 'Start mining';
+        if(mining) {
+          Module.postCustomMessage({message:'init_socket', miner_percentage: slider.value/100});
+        } else {
+          Module.postCustomMessage({message:'close_socket'});
+        }
+      };
+
+      var Module = {
+        preRun: [],
+        postRun: [],
+        postCustomMessage: function(data, options) {
+          options = options || {};
+          worker.postMessage({ target: 'custom', userData: data, preMain: options.preMain });
+        },
+        onCustomMessage: function(event) {
+          var data = event.data.userData;
+          if(data.message == 'show_ui') {
+            ui.style.setProperty('display', 'block');
+          }
+          if(data.message == 'log_ui' && data.text) {
+            log_pre.innerHTML += data.text + '\n';
+          }
+        },
+        print: (function() {
+          return function(text) {
+            if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+            console.log(text);
+          };
+        })(),
+        printErr: function(text) {
+          if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+          console.error(text);
+        },
+        canvas: (function() {
+          var canvas = document.getElementById('canvas');
+
+          // As a default initial behavior, pop up an alert when webgl context is lost. To make your
+          // application robust, you may want to override this behavior before shipping!
+          // See http://www.khronos.org/registry/webgl/specs/latest/1.0/#5.15.2
+          canvas.addEventListener("webglcontextlost", function(e) { console.log('WebGL context lost. You will need to reload the page.'); e.preventDefault(); }, false);
+
+          return canvas;
+        })()
+      };
+    </script>
+    {{{ SCRIPT }}}
+  </body>
+</html>
